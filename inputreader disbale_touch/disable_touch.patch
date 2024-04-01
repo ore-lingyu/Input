@@ -1,0 +1,99 @@
+commit 50cad0f9d536c6338fc2021c824e66180fad47f3
+Author: test <test@example.com>
+Date:   Sat Mar 12 17:58:54 2022 +0800
+
+    modify the disable touch
+
+diff --git a/native/services/inputflinger/InputManager.cpp b/native/services/inputflinger/InputManager.cpp
+index f7420be0..9da0913c 100755
+--- a/native/services/inputflinger/InputManager.cpp
++++ b/native/services/inputflinger/InputManager.cpp
+@@ -16,7 +16,7 @@
+ 
+ #define LOG_TAG "InputManager"
+ 
+-//#define LOG_NDEBUG 0
++#define LOG_NDEBUG 0
+ 
+ #include "InputManager.h"
+ #include "InputReaderFactory.h"
+@@ -85,7 +85,22 @@ status_t InputManager::stop() {
+ 
+     return OK;
+ }
+-
++status_t InputManager::dump(int fd, const Vector<String16>& args) {
++    if (args.size() > 0 ) {
++        ALOGW("InputManager::dump args = %s",std::string(String8(args[0]).string()).c_str());
++        String8 result;
++        result.append("InputManager diable state:\n");
++        if (args[0] == String16("disable")) {
++            InputReader::gDisable = true;
++            result.append("state: disable \n");
++        } else {
++            InputReader::gDisable = false;
++            result.append("state: enable \n");
++        }
++        write(fd, result.string(), result.size());
++    }
++    return 0;
++}
+ sp<InputReaderInterface> InputManager::getReader() {
+     return mReader;
+ }
+diff --git a/native/services/inputflinger/InputManager.h b/native/services/inputflinger/InputManager.h
+index c75611f0..7dcbefd6 100755
+--- a/native/services/inputflinger/InputManager.h
++++ b/native/services/inputflinger/InputManager.h
+@@ -36,7 +36,8 @@
+ #include <utils/Vector.h>
+ #include <utils/Timers.h>
+ #include <utils/RefBase.h>
+-
++#include <utils/String16.h>
++#include <utils/String8.h>
+ namespace android {
+ class InputChannel;
+ 
+@@ -89,7 +90,7 @@ public:
+ 
+     virtual status_t start();
+     virtual status_t stop();
+-
++    virtual status_t dump(int fd, const Vector<String16>& args);
+     virtual sp<InputReaderInterface> getReader();
+     virtual sp<InputClassifierInterface> getClassifier();
+     virtual sp<InputDispatcherInterface> getDispatcher();
+diff --git a/native/services/inputflinger/InputReader.cpp b/native/services/inputflinger/InputReader.cpp
+index f6f29705..e1ee1832 100755
+--- a/native/services/inputflinger/InputReader.cpp
++++ b/native/services/inputflinger/InputReader.cpp
+@@ -4389,12 +4389,13 @@ void TouchInputMapper::sync(nsecs_t when) {
+ 
+     processRawTouches(false /*timeout*/);
+ }
+-
++bool InputReader::gDisable = false;
+ void TouchInputMapper::processRawTouches(bool timeout) {
+-    if (mDeviceMode == DEVICE_MODE_DISABLED) {
++    if (InputReader::gDisable  || mDeviceMode == DEVICE_MODE_DISABLED) {
+         // Drop all input if the device is disabled.
+         mCurrentRawState.clear();
+         mRawStatesPending.clear();
++         ALOGD("Drop all input processRawTouches InputReader::gDisable = %d",InputReader::gDisable);
+         return;
+     }
+ 
+diff --git a/native/services/inputflinger/InputReader.h b/native/services/inputflinger/InputReader.h
+index 0dcd333e..4120886b 100755
+--- a/native/services/inputflinger/InputReader.h
++++ b/native/services/inputflinger/InputReader.h
+@@ -118,7 +118,7 @@ public:
+             const sp<InputReaderPolicyInterface>& policy,
+             const sp<InputListenerInterface>& listener);
+     virtual ~InputReader();
+-
++    static bool gDisable;
+     virtual void dump(std::string& dump);
+     virtual void monitor();
+ 
