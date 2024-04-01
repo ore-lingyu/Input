@@ -1,0 +1,114 @@
+diff --git a/getevent.c b/getevent.c
+index e2c77c3..6403c20 100755
+--- a/getevent.c
++++ b/getevent.c
+@@ -207,7 +207,12 @@ static int print_possible_events(int fd, int print_flags)
+     free(bits);
+     return 0;
+ }
+-
++int PRINT_NORMAL_TOUCH = 0;
++const int DOWN = 0;
++const int MOVE = 1;
++const int UP   = 2;
++int x = -1,y = -1;
++int action = -1;
+ static void print_event(int type, int code, int value, int print_flags)
+ {
+     const char *type_label, *code_label, *value_label;
+@@ -258,10 +263,13 @@ static void print_event(int type, int code, int value, int print_flags)
+                 break;
+         }
+ 
++    
++        if (PRINT_NORMAL_TOUCH) {
+         if (type_label)
+             printf("%-12.12s", type_label);
+         else
+             printf("%04x        ", type);
++    
+         if (code_label)
+             printf(" %-20.20s", code_label);
+         else
+@@ -270,6 +278,43 @@ static void print_event(int type, int code, int value, int print_flags)
+             printf(" %-20.20s", value_label);
+         else
+             printf(" %08x            ", value);
++        } else {
++            if (type_label && strcmp(type_label,"EV_ABS") == 0) {
++                if (code_label && strcmp(code_label,"ABS_MT_TRACKING_ID") == 0) {
++                    if (value == -1) {
++                        action = UP;
++                    } else {
++                        action = DOWN;
++                    }
++                }
++                if (code_label && strcmp(code_label,"ABS_MT_POSITION_X") == 0) {
++                    x= value;
++                }
++                if (code_label && strcmp(code_label,"ABS_MT_POSITION_Y") == 0) {
++                    y= value;
++                }
++                
++            } else if (type_label && strcmp(type_label,"EV_SYN") == 0) {
++                if (action == MOVE) {
++                    if (code_label && strcmp(code_label,"SYN_REPORT") == 0) {
++                        printf("FINGLER  MOVE x = %d y = %d \n",x,y);
++                    }
++                }
++                if (action == DOWN) {
++                    if (code_label &&  strcmp(code_label,"SYN_REPORT") == 0) {
++                        printf("FINGLER  DOWN x = %d y = %d \n",x,y);
++                        action = MOVE;
++                    }
++                }
++                if (action == UP) {
++                    if (code_label &&  strcmp(code_label,"SYN_REPORT") == 0) {
++                        printf("FINGLER  UP x = %d y = %d \n",x,y);
++                        action = -1;
++                    }
++                }
++            }
++        }
++
+     } else {
+         printf("%04x %04x %08x", type, code, value);
+     }
+@@ -668,19 +713,26 @@ int getevent_main(int argc, char *argv[])
+                         fprintf(stderr, "could not get event\n");
+                         return 1;
+                     }
+-                    if(get_time) {
+-                        printf("[%8ld.%06ld] ", event.time.tv_sec, event.time.tv_usec);
+-                    }
+-                    if(print_device)
+-                        printf("%s: ", device_names[i]);
++                    if (PRINT_NORMAL_TOUCH) {
++                        if(get_time) {
++                            printf("[%8ld.%06ld] ", event.time.tv_sec, event.time.tv_usec);
++                    
++                        if(print_device)
++                            printf("%s: ", device_names[i]);
++                        }
++                     }
++       
+                     print_event(event.type, event.code, event.value, print_flags);
+-                    if(sync_rate && event.type == 0 && event.code == 0) {
+-                        int64_t now = event.time.tv_sec * 1000000LL + event.time.tv_usec;
+-                        if(last_sync_time)
+-                            printf(" rate %lld", 1000000LL / (now - last_sync_time));
+-                        last_sync_time = now;
++                    if (PRINT_NORMAL_TOUCH) {
++                        if(sync_rate && event.type == 0 && event.code == 0) {
++                            int64_t now = event.time.tv_sec * 1000000LL + event.time.tv_usec;
++                            if(last_sync_time)
++                                printf(" rate %lld", 1000000LL / (now - last_sync_time));
++                            last_sync_time = now;
++                        }
++                        printf("%s", newline);  
+                     }
+-                    printf("%s", newline);
++                  
+                     if(event_count && --event_count == 0)
+                         return 0;
+                 }
