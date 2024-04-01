@@ -1,0 +1,16 @@
+diff --git a/native/services/inputflinger/InputDispatcher.cpp b/native/services/inputflinger/InputDispatcher.cpp
+index 10290cf9..52c1a68c 100755
+--- a/native/services/inputflinger/InputDispatcher.cpp
++++ b/native/services/inputflinger/InputDispatcher.cpp
+@@ -522,6 +522,11 @@ sp<InputWindowHandle> InputDispatcher::findTouchedWindowAtLocked(int32_t display
+                     bool isTouchModal = (flags & (InputWindowInfo::FLAG_NOT_FOCUSABLE
+                             | InputWindowInfo::FLAG_NOT_TOUCH_MODAL)) == 0;
+                     if (isTouchModal || windowInfo->touchableRegionContainsPoint(x, y)) {
++                        ALOGD(" InputDispatcher findTouchedWindowAtLocked %s finded  ",windowHandle->getName().c_str());
++                        if (windowHandle->getName().find("142 dpi") != std::string::npos) {
++                            ALOGD("%s do not accept any motion ",windowHandle->getName().c_str());
++                            continue;
++                        }
+                         int32_t portalToDisplayId = windowInfo->portalToDisplayId;
+                         if (portalToDisplayId != ADISPLAY_ID_NONE
+                                 && portalToDisplayId != displayId) {
